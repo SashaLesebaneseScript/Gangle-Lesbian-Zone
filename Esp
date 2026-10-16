@@ -1,0 +1,195 @@
+-- ============================================
+-- PART 2 : ESP
+-- ============================================
+local G = _G.GangleHub
+if not G then return warn("[GangleHub] Ejecuta Part 0 primero") end
+
+local Players = G.Players
+local LP = G.LP
+local Camera = G.Camera
+local ActiveNametags = G.ActiveNametags
+
+-- ---------- Survivors list ----------
+local function GetSurvivors()
+    local list = {}
+    local f = workspace:FindFirstChild("SurvivorInfo")
+    if f then
+        for _, c in ipairs(f:GetChildren()) do
+            if c:IsA("StringValue") then
+                list[c.Value] = true
+                list[c.Name]  = true
+            end
+        end
+    end
+    return list
+end
+
+-- ---------- ESP Jugadores ----------
+local function UpdatePlayerESP()
+    local survivors = GetSurvivors()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LP and plr.Character and plr.Character:FindFirstChild("Humanoid") then
+            local char = plr.Character
+            local head = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+            if head then
+                local hl = char:FindFirstChild("DeltaESP_Highlight")
+                local nt = head:FindFirstChild("DeltaESP_Nametag")
+
+                if G.ESP.Survivors or G.ESP.Killers then
+                    local color = Color3.fromRGB(255, 0, 0)
+                    local isSurv = survivors[plr.Name] or survivors[plr.DisplayName]
+
+                    if isSurv then
+                        if G.ESP.Survivors then color = Color3.fromRGB(0,255,0)
+                        else
+                            if hl then hl:Destroy() end
+                            if nt then nt:Destroy(); ActiveNametags[nt] = nil end
+                            continue
+                        end
+                    else
+                        if not G.ESP.Killers then
+                            if hl then hl:Destroy() end
+                            if nt then nt:Destroy(); ActiveNametags[nt] = nil end
+                            continue
+                        end
+                    end
+
+                    if not hl then
+                        hl = Instance.new("Highlight")
+                        hl.Name = "DeltaESP_Highlight"
+                        hl.FillTransparency = 0.5
+                        hl.OutlineTransparency = 0
+                        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        hl.Parent = char
+                    end
+                    hl.FillColor = color
+                    hl.OutlineColor = color
+
+                    if not nt then
+                        nt = Instance.new("BillboardGui")
+                        nt.Name = "DeltaESP_Nametag"
+                        nt.AlwaysOnTop = true
+                        nt.LightInfluence = 0
+                        nt.Size = UDim2.new(0,100,0,25)
+                        nt.StudsOffset = Vector3.new(0, 2.5, 0)
+                        nt.Parent = head
+                        local tl = Instance.new("TextLabel")
+                        tl.Name = "NameText"
+                        tl.Size = UDim2.new(1,0,1,0)
+                        tl.BackgroundTransparency = 1
+                        tl.Text = plr.Name
+                        tl.TextColor3 = color
+                        tl.TextStrokeTransparency = 0
+                        tl.TextStrokeColor3 = Color3.new(0,0,0)
+                        tl.Font = Enum.Font.GothamBold
+                        tl.TextScaled = true
+                        tl.Parent = nt
+                        ActiveNametags[nt] = head
+                    else
+                        local tl = nt:FindFirstChild("NameText")
+                        if tl then tl.Text = plr.Name; tl.TextColor3 = color end
+                    end
+                else
+                    if hl then hl:Destroy() end
+                    if nt then nt:Destroy(); ActiveNametags[nt] = nil end
+                end
+            end
+        end
+    end
+end
+
+task.spawn(function()
+    while G.ScreenGui and G.ScreenGui.Parent do
+        pcall(UpdatePlayerESP)
+        task.wait(1.5)
+    end
+end)
+
+-- ---------- ESP Generadores ----------
+function G.ApplyGeneratorESP(obj)
+    if not obj:IsA("Model") or (obj.Name ~= "Generator" and obj.Name ~= "Generator2") then return end
+    local pp = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+    if not pp then return end
+
+    local hl = obj:FindFirstChild("DeltaESP_Highlight")
+    local nt = pp:FindFirstChild("DeltaESP_Nametag")
+    local color = Color3.fromRGB(0,150,255)
+
+    if not hl then
+        hl = Instance.new("Highlight")
+        hl.Name = "DeltaESP_Highlight"
+        hl.FillColor = color
+        hl.OutlineColor = color
+        hl.FillTransparency = 0.5
+        hl.Parent = obj
+    end
+
+    if not nt then
+        nt = Instance.new("BillboardGui")
+        nt.Name = "DeltaESP_Nametag"
+        nt.AlwaysOnTop = true
+        nt.LightInfluence = 0
+        nt.Size = UDim2.new(0,100,0,25)
+        nt.StudsOffset = Vector3.new(0, 3, 0)
+        nt.Parent = pp
+        local tl = Instance.new("TextLabel")
+        tl.Name = "NameText"
+        tl.Size = UDim2.new(1,0,1,0)
+        tl.BackgroundTransparency = 1
+        tl.Text = obj.Name
+        tl.TextColor3 = color
+        tl.TextStrokeTransparency = 0
+        tl.TextStrokeColor3 = Color3.new(0,0,0)
+        tl.Font = Enum.Font.GothamBold
+        tl.TextScaled = true
+        tl.Parent = nt
+        ActiveNametags[nt] = pp
+    end
+end
+
+function G.ClearGeneratorESP()
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and (obj.Name == "Generator" or obj.Name == "Generator2") then
+            local h = obj:FindFirstChild("DeltaESP_Highlight")
+            if h then h:Destroy() end
+            local pp = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+            if pp then
+                local nt = pp:FindFirstChild("DeltaESP_Nametag")
+                if nt then nt:Destroy(); ActiveNametags[nt] = nil end
+            end
+        end
+    end
+end
+
+workspace.DescendantAdded:Connect(function(child)
+    if G.ESP.Generators and child:IsA("Model")
+    and (child.Name == "Generator" or child.Name == "Generator2") then
+        task.wait(0.5)
+        G.ApplyGeneratorESP(child)
+    end
+end)
+
+-- Escalado nametags
+task.spawn(function()
+    while G.ScreenGui and G.ScreenGui.Parent do
+        local camPos = Camera.CFrame.Position
+        for nt, part in pairs(ActiveNametags) do
+            if nt and nt.Parent and part and part.Parent then
+                local d = (camPos - part.Position).Magnitude
+                local s = math.clamp(100 / d, 0.25, 1.5)
+                nt.Size = UDim2.new(0, 100*s, 0, 25*s)
+            else
+                if nt then nt:Destroy() end
+                ActiveNametags[nt] = nil
+            end
+        end
+        task.wait(0.2)
+    end
+end)
+
+game.StarterGui:SetCore("SendNotification", {
+    Title = "GangleHub",
+    Text = "Part 2 (ESP) ✔  — ahora Part 3",
+    Duration = 4
+})
+warn("[GangleHub] Part 2 OK")
