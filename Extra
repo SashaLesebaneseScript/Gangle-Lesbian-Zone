@@ -1,0 +1,113 @@
+-- ============================================
+-- PART 4 : AIMLOCK + FULLBRIGHT + FLOAT BTN
+-- ============================================
+local G = _G.GangleHub
+if not G then return warn("[GangleHub] Ejecuta Part 0 primero") end
+
+local Players = G.Players
+local LP = G.LP
+local Camera = G.Camera
+local RSvc = G.RunService
+local UIS = G.UIS
+local Lighting = G.Lighting
+local PARENT = G.GUI_PARENT
+
+-- ---------- AIMLOCK ----------
+local function GetClosest()
+    local closest, dist = nil, math.huge
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LP and plr.Character and plr.Character:FindFirstChild("Humanoid")
+        and plr.Character.Humanoid.Health > 0 then
+            local part = plr.Character:FindFirstChild(G.Aim.TargetPart)
+            if part and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+                local _, onScreen = Camera:WorldToViewportPoint(part.Position)
+                if onScreen then
+                    local d = (LP.Character.HumanoidRootPart.Position - part.Position).Magnitude
+                    if d < dist then dist = d; closest = plr end
+                end
+            end
+        end
+    end
+    return closest
+end
+
+RSvc.RenderStepped:Connect(function()
+    if not G.Aim.Enabled then
+        if Camera.CameraType == Enum.CameraType.Scriptable then
+            Camera.CameraType = Enum.CameraType.Custom
+        end
+        return
+    end
+
+    if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+        Camera.CameraType = Enum.CameraType.Scriptable
+
+        local tgt = G.Aim.Current
+        if not tgt or not tgt.Character
+        or not tgt.Character:FindFirstChild(G.Aim.TargetPart)
+        or tgt.Character.Humanoid.Health <= 0 then
+            tgt = GetClosest()
+            G.Aim.Current = tgt
+        end
+
+        if tgt and tgt.Character then
+            local part = tgt.Character:FindFirstChild(G.Aim.TargetPart)
+            if part then
+                local goal = CFrame.new(Camera.CFrame.Position, part.Position)
+                Camera.CFrame = G.Aim.Humanize and Camera.CFrame:Lerp(goal, 0.2) or goal
+            end
+        end
+    end
+end)
+
+-- ---------- FULLBRIGHT ----------
+function G.ApplyLighting()
+    if G.Visual.Fullbright then
+        Lighting.Brightness = 2
+        Lighting.ClockTime = 14
+        Lighting.GlobalShadows = false
+        Lighting.FogEnd = 100000
+        Lighting.OutdoorAmbient = Color3.fromRGB(128,128,128)
+    else
+        Lighting.Brightness = G.OrigLighting.Brightness
+        Lighting.ClockTime = G.OrigLighting.ClockTime
+        Lighting.GlobalShadows = G.OrigLighting.GlobalShadows
+        Lighting.FogEnd = G.OrigLighting.FogEnd
+        Lighting.OutdoorAmbient = G.OrigLighting.OutdoorAmbient
+    end
+end
+
+-- ---------- BOTÓN FLOTANTE AIM ----------
+local FloatGui = Instance.new("ScreenGui")
+FloatGui.Name = "AimlockFloat"
+FloatGui.ResetOnSpawn = false
+FloatGui.DisplayOrder = 2147483647
+FloatGui.Parent = PARENT
+
+local FB = Instance.new("TextButton")
+FB.Size = UDim2.new(0, 55, 0, 55)
+FB.Position = UDim2.new(0.85, 0, 0.35, 0)
+FB.BackgroundColor3 = Color3.fromRGB(30,30,30)
+FB.TextColor3 = Color3.new(1,1,1)
+FB.Text = "AIM"
+FB.Font = Enum.Font.GothamBold
+FB.TextSize = 12
+FB.Active = true
+FB.Draggable = true
+FB.Parent = FloatGui
+Instance.new("UICorner", FB).CornerRadius = UDim.new(1,0)
+G.FloatBtn = FB
+
+FB.MouseButton1Click:Connect(function()
+    G.Aim.Enabled = not G.Aim.Enabled
+    FB.BackgroundColor3 = G.Aim.Enabled and Color3.fromRGB(0,150,0) or Color3.fromRGB(30,30,30)
+    FB.Text = G.Aim.Enabled and "AIM ON" or "AIM"
+    if not G.Aim.Enabled then G.Aim.Current = nil end
+end)
+
+game.StarterGui:SetCore("SendNotification", {
+    Title = "Gangle's Lesbian Hub",
+    Text = "✔ Todo cargado (Parts 0-4)",
+    Duration = 6
+})
+warn("[GangleHub] Part 4 OK — script completo cargado")
