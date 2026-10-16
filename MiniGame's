@@ -1,0 +1,103 @@
+-- ============================================
+-- PART 3 : AUTO MINIJUEGOS
+-- ============================================
+local G = _G.GangleHub
+if not G then return warn("[GangleHub] Ejecuta Part 0 primero") end
+
+local RS = G.RS
+local PG = G.PG
+local RSvc = G.RunService
+
+local function safeFire(name, ...)
+    local remotes = RS:FindFirstChild("Remotes")
+    if not remotes then return false end
+    local r = remotes:FindFirstChild(name)
+    if r and r:IsA("RemoteEvent") then
+        pcall(function() r:FireServer(...) end)
+        return true
+    end
+    return false
+end
+
+local function overlap(a, b)
+    local ap, as = a.AbsolutePosition, a.AbsoluteSize
+    local bp, bs = b.AbsolutePosition, b.AbsoluteSize
+    return ap.X + as.X >= bp.X and ap.X <= bp.X + bs.X
+       and ap.Y + as.Y >= bp.Y and ap.Y <= bp.Y + bs.Y
+end
+
+-- SkillCheck auto
+local function autoSkill(checkGui)
+    local arm = checkGui:WaitForChild("Arm", 5)
+    if not arm then return end
+    local hb = checkGui:FindFirstChild("Hitbox")
+    if not hb then return end
+    local inner = hb:FindFirstChild("Hitbox")
+    if not inner then return end
+
+    task.spawn(function()
+        while G.Auto.Skill and checkGui.Parent do
+            local frame = arm:FindFirstChild("Frame")
+            if frame and overlap(frame, inner) then
+                safeFire("SkillCheck")
+                return
+            end
+            RSvc.RenderStepped:Wait()
+        end
+    end)
+end
+
+-- Generator insta
+local function autoGen(genGui)
+    if not genGui or not genGui.Parent then return end
+    task.spawn(function()
+        local start = os.clock()
+        local lastFill, stuck = -1, 0
+        while G.Auto.Gen and genGui.Parent do
+            for _ = 1, 3 do safeFire("Generator", "Hack", false) end
+
+            local holder = genGui:FindFirstChild("Holder")
+            local code   = holder and holder:FindFirstChild("Code")
+            local prog   = code and code:FindFirstChild("Progress")
+            local fill   = prog and prog:FindFirstChild("Fill")
+            if fill then
+                local p = fill.AbsoluteSize.X
+                if p == lastFill then stuck += 1 else stuck = 0; lastFill = p end
+            end
+            if stuck > 180 or (os.clock() - start > 15) then break end
+            RSvc.Heartbeat:Wait()
+        end
+    end)
+end
+
+PG.DescendantAdded:Connect(function(desc)
+    if not desc:IsA("GuiObject") then return end
+    if desc.Name == "Check" and G.Auto.Skill then
+        task.defer(function()
+            if desc:FindFirstChild("Arm") then autoSkill(desc) end
+        end)
+    end
+    if desc.Name == "Holder" and desc:FindFirstChild("Code") and G.Auto.Gen then
+        task.defer(function()
+            if desc.Parent then autoGen(desc.Parent) end
+        end)
+    end
+end)
+
+function G.SweepMinigames()
+    for _, d in ipairs(PG:GetDescendants()) do
+        if not d:IsA("GuiObject") then continue end
+        if d.Name == "Check" and d:FindFirstChild("Arm") and G.Auto.Skill then
+            autoSkill(d)
+        elseif d.Name == "Holder" and d:FindFirstChild("Code") and d.Parent and G.Auto.Gen then
+            autoGen(d.Parent)
+        end
+    end
+end
+
+game.StarterGui:SetCore("SendNotification", {
+    Title = "GangleHub",
+    Text = "Part 3 (Minijuegos) ✔  — ahora Part 4",
+    Duration = 4
+})
+warn("[GangleHub] Part 3 OK")
