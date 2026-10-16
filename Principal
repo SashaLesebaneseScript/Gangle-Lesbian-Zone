@@ -1,0 +1,166 @@
+-- ============================================
+-- PART 1 : GUI PRINCIPAL
+-- ============================================
+local G = _G.GangleHub
+if not G then return warn("[GangleHub] Ejecuta Part 0 primero") end
+
+local PARENT = G.GUI_PARENT
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name           = "GangleHub_GUI"
+ScreenGui.ResetOnSpawn   = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.DisplayOrder   = 2147483647
+ScreenGui.Enabled        = true
+ScreenGui.Parent         = PARENT
+G.ScreenGui = ScreenGui
+
+local Main = Instance.new("Frame")
+Main.Size             = UDim2.new(0, 280, 0, 400)
+Main.Position         = UDim2.new(0, 10, 0, 60)
+Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Main.BorderSizePixel  = 0
+Main.Active           = true
+Main.Visible          = true
+Main.Parent           = ScreenGui
+G.MainFrame = Main
+
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
+
+local Stroke = Instance.new("UIStroke")
+Stroke.Color     = Color3.fromRGB(255, 90, 200)
+Stroke.Thickness = 2
+Stroke.Parent    = Main
+
+local Title = Instance.new("TextLabel")
+Title.Size              = UDim2.new(1, -50, 0, 34)
+Title.Position          = UDim2.new(0, 10, 0, 8)
+Title.BackgroundTransparency = 1
+Title.Text              = "Gangle's Lesbian Hub"
+Title.TextColor3        = Color3.fromRGB(255, 120, 210)
+Title.Font              = Enum.Font.GothamBold
+Title.TextScaled        = true
+Title.TextXAlignment    = Enum.TextXAlignment.Left
+Title.Parent            = Main
+
+local Close = Instance.new("TextButton")
+Close.Size             = UDim2.new(0, 28, 0, 28)
+Close.Position         = UDim2.new(1, -36, 0, 10)
+Close.BackgroundColor3 = Color3.fromRGB(255, 70, 100)
+Close.Text             = "X"
+Close.TextColor3       = Color3.new(1,1,1)
+Close.Font             = Enum.Font.GothamBold
+Close.TextScaled       = true
+Close.BorderSizePixel  = 0
+Close.Parent           = Main
+Instance.new("UICorner", Close).CornerRadius = UDim.new(1, 0)
+Close.MouseButton1Click:Connect(function() ScreenGui.Enabled = false end)
+
+-- Drag
+local dragging, dragInput, dragStart, startPos
+Main.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = Main.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
+    end
+end)
+Main.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+    or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+G.UIS.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        Main.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- Helper toggle
+local function MakeToggle(text, yPos, cb)
+    local B = Instance.new("TextButton")
+    B.Size             = UDim2.new(1, -20, 0, 34)
+    B.Position         = UDim2.new(0, 10, 0, yPos)
+    B.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    B.TextColor3       = Color3.fromRGB(220, 220, 220)
+    B.Text             = text .. " : OFF"
+    B.Font             = Enum.Font.Gotham
+    B.TextScaled       = true
+    B.BorderSizePixel  = 0
+    B.AutoButtonColor  = false
+    B.Parent           = Main
+    Instance.new("UICorner", B).CornerRadius = UDim.new(0, 6)
+
+    local state = false
+    B.MouseButton1Click:Connect(function()
+        state = not state
+        B.Text = text .. (state and " : ON" or " : OFF")
+        B.BackgroundColor3 = state and Color3.fromRGB(255, 70, 180) or Color3.fromRGB(35, 35, 35)
+        B.TextColor3 = state and Color3.new(1,1,1) or Color3.fromRGB(220, 220, 220)
+        if cb then cb(state) end
+    end)
+    return B
+end
+
+local yStart, gap = 50, 38
+
+MakeToggle("ESP Survivors",  yStart + gap*0, function(s) G.ESP.Survivors = s end)
+MakeToggle("ESP Killers",    yStart + gap*1, function(s) G.ESP.Killers = s end)
+MakeToggle("ESP Generators", yStart + gap*2, function(s)
+    G.ESP.Generators = s
+    if G.ApplyGeneratorESP and G.ClearGeneratorESP then
+        if s then
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("Model") and (obj.Name == "Generator" or obj.Name == "Generator2") then
+                    G.ApplyGeneratorESP(obj)
+                end
+            end
+        else
+            G.ClearGeneratorESP()
+        end
+    end
+end)
+MakeToggle("Fullbright", yStart + gap*3, function(s)
+    G.Visual.Fullbright = s
+    if G.ApplyLighting then G.ApplyLighting() end
+end)
+MakeToggle("Auto MiniGame's", yStart + gap*4, function(s)
+    G.Auto.Gen = s
+    if s and G.SweepMinigames then task.defer(G.SweepMinigames) end
+end)
+MakeToggle("Auto MiniGame's 2 (SkillCheck)", yStart + gap*5, function(s)
+    G.Auto.Skill = s
+    if s and G.SweepMinigames then task.defer(G.SweepMinigames) end
+end)
+MakeToggle("Aimlock", yStart + gap*6, function(s)
+    G.Aim.Enabled = s
+    if G.FloatBtn then
+        G.FloatBtn.BackgroundColor3 = s and Color3.fromRGB(0,150,0) or Color3.fromRGB(30,30,30)
+        G.FloatBtn.Text = s and "AIM ON" or "AIM"
+    end
+    if not s then G.Aim.Current = nil end
+end)
+
+-- Keybind RightShift
+G.UIS.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        ScreenGui.Enabled = not ScreenGui.Enabled
+    end
+end)
+
+game.StarterGui:SetCore("SendNotification", {
+    Title = "GangleHub",
+    Text = "Part 1 (GUI) ✔  — ahora Part 2",
+    Duration = 4
+})
+warn("[GangleHub] Part 1 OK")
